@@ -12,6 +12,6 @@ int main() {
 		glfwPollEvents();
 		TitleFps();
 	}
-	TerminateWindow();
+	TerminateWindow(); 
 	return 0;
 }

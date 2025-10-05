@@ -25,22 +25,6 @@ bool InitializeWindow (VkExtent2D size, bool fullScreen = false, bool isResizabl
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	//向GLFW说明不需要OpenGL的API
 	glfwWindowHint(GLFW_RESIZABLE, isResizable);	//指定窗口是否可伸缩
 
-	uint32_t extensionCount = 0;	//扩展数
-	const char** extensionNames;	//扩展名数组,由glfw控制分配释放
-	extensionNames = glfwGetRequiredInstanceExtensions(&extensionCount);//获取所需扩展，同时若执行成功则将扩展数写入传入参数
-	if (!extensionNames)	//查看扩展名数组是否为空
-	{
-		std::cout << "[ InitializeWindow ]\nVulkan is not available on this machine!\n";
-		glfwTerminate();
-		return false;
-	}
-	for (size_t i = 0; i < extensionCount; i++)
-	{
-		graphicsBase::Base().AddInstanceExtension(extensionNames[i]);
-	}
-	vulkan::graphicsBase::Base().AddDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-
 	pMonitor = glfwGetPrimaryMonitor();				//取得当前显示器的指针，以便进行全屏或其他操作
 
 	//用显示器的指针获取显示器当前的视频模式，保证全屏时的图像区域与屏幕分辨率一致
@@ -60,6 +44,46 @@ bool InitializeWindow (VkExtent2D size, bool fullScreen = false, bool isResizabl
 		return false;
 	}
 
+#ifdef _WIN32
+	graphicsBase::Base().AddInstanceExtension(VK_KHR_SURFACE_EXTENSION_NAME);
+	graphicsBase::Base().AddInstanceExtension(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#else
+	uint32_t extensionCount = 0;	//扩展数
+	const char** extensionNames;	//扩展名数组,由glfw控制分配释放
+	extensionNames = glfwGetRequiredInstanceExtensions(&extensionCount);//获取所需扩展，同时若执行成功则将扩展数写入传入参数
+	if (!extensionNames)	//查看扩展名数组是否为空
+	{
+		std::cout << "[ InitializeWindow ]\nVulkan is not available on this machine!\n";
+		glfwTerminate();
+		return false;
+	}
+	for (size_t i = 0; i < extensionCount; i++)
+	{
+		graphicsBase::Base().AddInstanceExtension(extensionNames[i]);
+	}
+#endif
+	graphicsBase::Base().AddDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	//在创建window surface前创建Vulkan实例
+	graphicsBase::Base().UseLatestApiVersion();
+	if (graphicsBase::Base().CreateInstance())
+		return false;
+
+	//创建window surface
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	if (VkResult result = glfwCreateWindowSurface(graphicsBase::Base().Instance(), pWindow, nullptr, &surface)) {
+		std::cout << "[ InitializeWindow ] ERROR\nFailed to create a window surface!\nError code: " << int32_t(result) << std::endl;
+		glfwTerminate();
+		return false;
+	}
+	graphicsBase::Base().Surface(surface);
+	//通过用||操作符短路执行来省去几行
+	if (//获取物理设备，并使用列表中的第一个物理设备，这里不考虑以下任意函数失败后更换物理设备的情况
+		graphicsBase::Base().GetPhysicalDevices() ||
+		//一个true一个false，暂时不需要计算用的队列
+		graphicsBase::Base().DeterminePhysicalDevice(0, true, false) ||
+		//创建逻辑设备
+		graphicsBase::Base().CreateDevice())
+		return false;
 	return true;
 }
 
