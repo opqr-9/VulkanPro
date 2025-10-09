@@ -70,27 +70,37 @@ bool InitializeWindow (VkExtent2D size, bool fullScreen = false, bool isResizabl
 
 	//创建window surface
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
-	if (VkResult result = glfwCreateWindowSurface(graphicsBase::Base().Instance(), pWindow, nullptr, &surface)) {
+	if (result_t result = glfwCreateWindowSurface(graphicsBase::Base().Instance(), pWindow, nullptr, &surface)) {
 		std::cout << "[ InitializeWindow ] ERROR\nFailed to create a window surface!\nError code: " << int32_t(result) << std::endl;
 		glfwTerminate();
 		return false;
 	}
 	graphicsBase::Base().Surface(surface);
-	//通过用||操作符短路执行来省去几行
-	if (//获取物理设备，并使用列表中的第一个物理设备，这里不考虑以下任意函数失败后更换物理设备的情况
+
+	//获取物理设备，并使用列表中的第一个物理设备，这里不考虑以下任意函数失败后更换物理设备的情况
+	if (//通过用||操作符短路执行来省去几行
 		graphicsBase::Base().GetPhysicalDevices() ||
 		//一个true一个false，暂时不需要计算用的队列
 		graphicsBase::Base().DeterminePhysicalDevice(0, true, false) ||
 		//创建逻辑设备
 		graphicsBase::Base().CreateDevice())
+	{
 		return false;
+	}
+
+	//创建交换链
+	if (graphicsBase::Base().CreateSwapchain(limitFrameRate))
+	{
+		return false;
+	}
 	return true;
 }
 
 //终止窗口
 void TerminateWindow() 
 {
-
+	graphicsBase::Base().WaitIdle();
+	glfwTerminate();
 }
 
 //在窗口标题上显示帧率
